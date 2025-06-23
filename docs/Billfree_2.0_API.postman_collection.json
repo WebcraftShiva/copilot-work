@@ -1,0 +1,746 @@
+{
+  "info": {
+    "name": "Billfree 2.0 API",
+    "description": "Complete API testing collection for Billfree 2.0 NestJS application with authentication endpoints and MD5 to bcrypt migration testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "1. User Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{test_username}}\",\n  \"password\": \"{{test_password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Authenticate user with username and password. Returns JWT token and user information. Automatically migrates MD5 passwords to bcrypt on successful login."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Test successful login",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response time is less than 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has access token\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('access_token');",
+                  "    pm.expect(response.access_token).to.be.a('string');",
+                  "    ",
+                  "    // Store token for other requests",
+                  "    pm.environment.set(\"auth_token\", response.access_token);",
+                  "    pm.environment.set(\"user_id\", response.user.id);",
+                  "});",
+                  "",
+                  "pm.test(\"Token type is Bearer\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.token_type).to.eql(\"Bearer\");",
+                  "});",
+                  "",
+                  "pm.test(\"User object is present\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.user).to.have.property('id');",
+                  "    pm.expect(response.user).to.have.property('username');",
+                  "    pm.expect(response.user).to.have.property('email');",
+                  "});",
+                  "",
+                  "pm.test(\"Expires in 30 years\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.expires_in).to.eql(946080000);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Generate Long-term Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dev_token\": \"{{device_token}}\",\n  \"dev_info\": \"{{device_info}}\",\n  \"user_id\": {{user_id}},\n  \"os\": \"iOS\",\n  \"user_type\": \"user\",\n  \"salt\": \"random_salt_{{$randomAlphaNumeric}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/v3/token/generate",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "v3", "token", "generate"]
+            },
+            "description": "Generate a 30-year authentication token for API access using device information and user credentials."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// Generate unique device token",
+                  "const timestamp = Date.now();",
+                  "const deviceToken = `device_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;",
+                  "pm.environment.set(\"device_token\", deviceToken);",
+                  "",
+                  "// Generate device info",
+                  "const devices = [",
+                  "    \"iOS 15.0, iPhone 13\",",
+                  "    \"Android 12, Samsung Galaxy S21\",",
+                  "    \"iOS 14.0, iPhone 12\",",
+                  "    \"Android 11, Google Pixel 5\"",
+                  "];",
+                  "const deviceInfo = devices[Math.floor(Math.random() * devices.length)];",
+                  "pm.environment.set(\"device_info\", deviceInfo);"
+                ],
+                "type": "text/javascript"
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response time is less than 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has auth token\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('auth_token');",
+                  "    pm.expect(response.auth_token).to.be.a('string');",
+                  "    ",
+                  "    // Store long-term token",
+                  "    pm.environment.set(\"long_term_token\", response.auth_token);",
+                  "});",
+                  "",
+                  "pm.test(\"Token has correct prefix\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.auth_token).to.match(/^bf_token_/);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has user_id\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('user_id');",
+                  "    pm.expect(response.user_id).to.be.a('number');",
+                  "});",
+                  "",
+                  "pm.test(\"Token type is Bearer\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.token_type).to.eql(\"Bearer\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Validate Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"auth_token\": \"{{long_term_token}}\",\n  \"user_type\": \"user\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/v2/token/validate",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "v2", "token", "validate"]
+            },
+            "description": "Validate if an authentication token is valid and active."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response time is less than 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "pm.test(\"Valid token returns success\", function () {",
+                  "    const response = pm.response.json();",
+                  "    if (response.error === false) {",
+                  "        pm.expect(response.response).to.eql(200);",
+                  "        pm.expect(response.message).to.eql(\"Valid token\");",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test(\"Invalid token returns error\", function () {",
+                  "    const response = pm.response.json();",
+                  "    if (response.error === true) {",
+                  "        pm.expect(response.response).to.eql(401);",
+                  "        pm.expect(response.message).to.eql(\"Invalid or expired token\");",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test(\"Response has required fields\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('error');",
+                  "    pm.expect(response).to.have.property('response');",
+                  "    pm.expect(response).to.have.property('message');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Get User by Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"auth_token\": \"{{long_term_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/get-user-by-token",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "get-user-by-token"]
+            },
+            "description": "Retrieve user ID from authentication token. Useful for identifying the user associated with a token."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response time is less than 2000ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+                  "});",
+                  "",
+                  "pm.test(\"Valid token returns user ID\", function () {",
+                  "    const response = pm.response.json();",
+                  "    if (response.error === false) {",
+                  "        pm.expect(response.response).to.be.a('number');",
+                  "        pm.expect(response.response).to.be.above(0);",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test(\"Invalid token returns error\", function () {",
+                  "    const response = pm.response.json();",
+                  "    if (response.error === true) {",
+                  "        pm.expect(response.response).to.eql(\"User not found\");",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test(\"Response has required fields\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response).to.have.property('error');",
+                  "    pm.expect(response).to.have.property('response');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Test Scenarios",
+      "item": [
+        {
+          "name": "Full Authentication Flow",
+          "item": [
+            {
+              "name": "Step 1 - Login",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"{{test_username}}\",\n  \"password\": \"{{test_password}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "login"]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Login successful\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    const response = pm.response.json();",
+                      "    pm.environment.set(\"user_id\", response.user.id);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Step 2 - Generate Token",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"dev_token\": \"{{device_token}}\",\n  \"dev_info\": \"{{device_info}}\",\n  \"user_id\": {{user_id}},\n  \"user_type\": \"user\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/v3/token/generate",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "v3", "token", "generate"]
+                }
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const timestamp = Date.now();",
+                      "const deviceToken = `device_flow_${timestamp}`;",
+                      "pm.environment.set(\"device_token\", deviceToken);",
+                      "pm.environment.set(\"device_info\", \"Test Flow Device\");"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Token generated\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    const response = pm.response.json();",
+                      "    pm.environment.set(\"flow_token\", response.auth_token);",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Step 3 - Validate Token",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"auth_token\": \"{{flow_token}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/v2/token/validate",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "v2", "token", "validate"]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Token is valid\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.error).to.be.false;",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Step 4 - Get User by Token",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"auth_token\": \"{{flow_token}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/get-user-by-token",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "get-user-by-token"]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"User retrieved successfully\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response.error).to.be.false;",
+                      "    pm.expect(response.response).to.eql(parseInt(pm.environment.get(\"user_id\")));",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "MD5 to Bcrypt Migration Test",
+          "item": [
+            {
+              "name": "Login with MD5 Password",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"{{test_username}}\",\n  \"password\": \"{{test_password}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "login"]
+                },
+                "description": "This tests automatic migration from MD5 to bcrypt on login"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"MD5 password login successful\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response).to.have.property('access_token');",
+                      "    console.log('Password should now be migrated to bcrypt');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Re-login with Bcrypt Password",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"{{test_username}}\",\n  \"password\": \"{{test_password}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{base_url}}/auth/login",
+                  "host": ["{{base_url}}"],
+                  "path": ["auth", "login"]
+                },
+                "description": "This tests login with the now-bcrypt password"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"Bcrypt password login successful\", function () {",
+                      "    pm.response.to.have.status(200);",
+                      "    const response = pm.response.json();",
+                      "    pm.expect(response).to.have.property('access_token');",
+                      "    console.log('Login successful with bcrypt password');",
+                      "});"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Negative Tests",
+      "item": [
+        {
+          "name": "Login - Invalid Credentials",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"invalid_user\",\n  \"password\": \"wrong_password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"Error message is correct\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.message).to.eql(\"Invalid credentials\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login - Missing Username",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Validation error for username\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.message).to.include(\"Username required\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Generate Token - Invalid User ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"dev_token\": \"device_test\",\n  \"dev_info\": \"Test Device\",\n  \"user_id\": 99999\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/v3/token/generate",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "v3", "token", "generate"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});",
+                  "",
+                  "pm.test(\"User not found error\", function () {",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.message).to.include(\"User not found\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validate Token - Invalid Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"auth_token\": \"invalid_token_string\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/v2/token/validate",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "v2", "token", "validate"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200 but error is true\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    const response = pm.response.json();",
+                  "    pm.expect(response.error).to.be.true;",
+                  "    pm.expect(response.response).to.eql(401);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Set common headers",
+          "pm.request.headers.add({",
+          "    key: 'Content-Type',",
+          "    value: 'application/json'",
+          "});",
+          "",
+          "// Log request for debugging",
+          "console.log(`Making ${pm.request.method} request to: ${pm.request.url}`);"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Global error response test",
+          "pm.test(\"Error response has correct structure\", function () {",
+          "    if (pm.response.code >= 400) {",
+          "        const response = pm.response.json();",
+          "        pm.expect(response).to.have.property('statusCode');",
+          "        pm.expect(response).to.have.property('message');",
+          "        pm.expect(response.statusCode).to.eql(pm.response.code);",
+          "    }",
+          "});",
+          "",
+          "// Content type check",
+          "pm.test(\"Content-Type is application/json\", function () {",
+          "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "test_username",
+      "value": "test_user",
+      "type": "string"
+    },
+    {
+      "key": "test_password",
+      "value": "password123",
+      "type": "string"
+    }
+  ]
+}

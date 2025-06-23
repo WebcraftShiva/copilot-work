@@ -1,0 +1,17 @@
+#Development
+
+pnpm: https://pnpm.io/installation
+
+Nest CLI: https://docs.nestjs.com/cli/overview
+
+
+
+# & Deploy
+
+# Docker Desktop: https://www.docker.com/products/docker-desktop/
+
+# kubectl: https://kubernetes.io/docs/tasks/tools/#kubectl
+
+# gcloud CLI: https://cloud.google.com/sdk/docs/install
+
+# The completed project source code is located here: https://github.com/mguay22/sleepr
